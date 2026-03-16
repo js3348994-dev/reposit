@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Blocos com Login</title>
+
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+
+<style>
+
+body{
+font-family:Arial;
+margin:0;
+background:#111;
+color:white;
+}
+
+#login{
+display:flex;
+flex-direction:column;
+align-items:center;
+justify-content:center;
+height:100vh;
+}
+
+#app{
+display:none;
+padding:20px;
+}
+
+#perfil{
+display:flex;
+align-items:center;
+gap:10px;
+margin-bottom:20px;
+}
+
+#foto{
+width:40px;
+border-radius:50%;
+}
+
+#grid{
+display:grid;
+grid-template-columns:repeat(auto-fit,minmax(200px,1fr));
+gap:20px;
+}
+
+.card{
+background:#222;
+padding:15px;
+border-radius:10px;
+}
+
+.card img{
+width:100%;
+border-radius:10px;
+}
+
+button{
+margin-top:5px;
+cursor:pointer;
+}
+
+input,textarea{
+display:block;
+margin-bottom:10px;
+width:250px;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<div id="login">
+
+<h2>Entrar com Google</h2>
+
+<div id="g_id_onload"
+data-client_id="598297495575-heh741k5ap4rruo2ft5dq2llldvug64f.apps.googleusercontent.com"
+data-callback="handleLogin">
+</div>
+
+<div class="g_id_signin"></div>
+
+</div>
+
+
+<div id="app">
+
+<div id="perfil">
+<img id="foto">
+<span id="nome"></span>
+</div>
+
+<input id="titulo" placeholder="Título">
+
+<textarea id="desc" placeholder="Descrição"></textarea>
+
+<input type="file" id="fotoInput">
+
+<button onclick="criarBloco()">Criar bloco</button>
+
+<div id="grid"></div>
+
+</div>
+
+
+<script type="module">
+
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+
+import {
+getFirestore,
+collection,
+addDoc,
+getDocs,
+deleteDoc,
+doc,
+updateDoc,
+query,
+where
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+
+const firebaseConfig = {
+
+apiKey: "AIzaSyCgZK_n5kWa5CBIoAXcc-hOQi8Coy7TbDk",
+authDomain: "jefferson-6f885.firebaseapp.com",
+projectId: "jefferson-6f885",
+storageBucket: "jefferson-6f885.firebasestorage.app",
+messagingSenderId: "771860706852",
+appId: "1:771860706852:web:dc0aed1c3e4be8a4710ab1"
+
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+let usuario="";
+
+
+window.handleLogin = function(response){
+
+const dados = JSON.parse(atob(response.credential.split('.')[1]))
+
+usuario = dados.email
+
+document.getElementById("nome").innerText = dados.name
+document.getElementById("foto").src = dados.picture
+
+document.getElementById("login").style.display="none"
+document.getElementById("app").style.display="block"
+
+carregar()
+
+}
+
+
+
+window.criarBloco = async function(){
+
+let titulo=document.getElementById("titulo").value
+let desc=document.getElementById("desc").value
+let arquivo=document.getElementById("fotoInput").files[0]
+
+if(!titulo || !desc || !arquivo){
+
+alert("preencha tudo")
+return
+
+}
+
+let leitor=new FileReader()
+
+leitor.onload=async function(e){
+
+let foto=e.target.result
+
+await addDoc(collection(db,"blocos"),{
+
+titulo:titulo,
+desc:desc,
+foto:foto,
+usuario:usuario
+
+})
+
+document.getElementById("titulo").value=""
+document.getElementById("desc").value=""
+document.getElementById("fotoInput").value=""
+
+carregar()
+
+}
+
+leitor.readAsDataURL(arquivo)
+
+}
+
+
+
+async function carregar(){
+
+let grid=document.getElementById("grid")
+
+grid.innerHTML=""
+
+const q = query(
+collection(db,"blocos"),
+where("usuario","==",usuario)
+)
+
+const querySnapshot = await getDocs(q)
+
+querySnapshot.forEach((docItem)=>{
+
+let b=docItem.data()
+
+let div=document.createElement("div")
+
+div.className="card"
+
+div.innerHTML=`
+
+<img src="${b.foto}">
+<h3>${b.titulo}</h3>
+<p>${b.desc}</p>
+
+<button onclick="editar('${docItem.id}','${b.titulo}','${b.desc}')">Editar</button>
+
+<button onclick="apagar('${docItem.id}')">Apagar</button>
+
+`
+
+grid.appendChild(div)
+
+})
+
+}
+
+
+
+window.apagar = async function(id){
+
+await deleteDoc(doc(db,"blocos",id))
+
+carregar()
+
+}
+
+
+
+window.editar = async function(id,titulo,desc){
+
+let novoTitulo=prompt("Novo título",titulo)
+let novaDesc=prompt("Nova descrição",desc)
+
+if(novoTitulo && novaDesc){
+
+await updateDoc(doc(db,"blocos",id),{
+
+titulo:novoTitulo,
+desc:novaDesc
+
+})
+
+carregar()
+
+}
+
+}
+
+</script>
+
+</body>
+</html>
